@@ -7,6 +7,8 @@ Created on Mon Jan 17 12:17:21 2022
 
 import re
 import numpy as np
+import h5py
+
 from collections import defaultdict
 from copy import deepcopy
 #%% Load Data
@@ -24,31 +26,13 @@ for ii, vword in enumerate(valid_words):
 
 valid_words.extend(wordles)
 
-valid_words_str = "\n".join(valid_words)
-wordles_str = "\n".join(wordles)
+valid_words_str = "\n".join(valid_words) + "\n"
+wordles_str = "\n".join(wordles) + "\n"
 
-wordle_map = {
-    '.....': 'soare',
-    '.....-aeors': 'child',
-    '.....;e4r3-aos': 'tepid',
-    '.e...;e4r3t0-adiops': 'rebut',
-    's....-aeor': 'think',
-    's....;i2-aehknort': 'sissy',
-    '.....;h1-acdeilors': 'humph',
-    '..a.e-ors': 'clung',
-    '..a.e-cglnorsu': 'width',
-    '..a.e;w0-cdghilnorstu': 'awake',
-    '.....;s0-aeor': 'might',
-    '.....;h3s0-aegimort': 'blush',
-    '.o...;a2-ers': 'clean',
-    '.o.a.;a2c0l1-enrs': 'favor',
-    'fo.a.;a12c0l1o3-enrsv': 'focal',
-    '..a.e;d2-cghilnorstuw': 'evade',
-    '.....;a2-eors': 'minty',
-    '.....;a2n2-eimorsty': 'naval',
-    's...e;r3-ao': 'perch',
-    'ser.e;r3-achop': 'serve'
- }
+wordle_map = {}
+with h5py.File("wordle_map.h5", "r") as fh:
+    for key, value in fh.items():
+        wordle_map[key] = value[()]
 
 def parse_knowns(knowns: str):
     rEL = lambda : list()
@@ -339,17 +323,55 @@ def solve(wordle):
             done_flag = True
     
     return num_guesses
-    
+
+def write_solve_data(data, filename = "NumGuessesPerSolve.txt"):
+    with open(filename, "w") as tf:
+        for key, value in data.items():
+            print(key, value, file=tf)
+
+def write_map():
+    with h5py.File('wordle_map.h5', "w") as fh:
+        for key, value in wordle_map.items():
+            fh[key] = value
 
 if __name__ == "__main__":
     # Put your guess in wordle (I usually start with SOARE)
     # If nothing, next best word is child
-    # qword = "....e;s0o1-ar"
-    # out = find_remaining_words(False, qword)
-    # out2 = find_best_guess(qword)
-    # out3 = [item for item in out2 if item[0] in out]
+    # info string syntax is:
+    # 5 characters that are either letters or "." for unknowns
+    # if any yellow letters, add a ";" to the info string 
+    # all knowns as are parsed as:
+    # character NotCorrectIndexes
+    # Any letters not in the word at all are added to the end of the string 
+    # after a "-" charater.
+    # Example: 
+    # "s....;o1r24e3-flick"
+    # says the first letter is for sure an S
+    # there is an o, r, and e in the word 
+    # (but not at indexes 1, 2 or 4, and 3 respectively)
+    # and there are no "f", "l", "i", "c", or "k"s in the final word.
+    info_str = "shar.-oetick"
+    qword, knowns, rms = parse_info_string(info_str)
+    i_str = make_info_string(deepcopy(qword), deepcopy(knowns), deepcopy(rms))
+    if i_str not in wordle_map:
+        out = find_remaining_words(False, qword)
+        out2 = find_best_guess(qword)
+        out3 = [item for item in out2 if item[0] in out]
+        
+        if out3[0][1] == 1.0:
+            best_guess = out3[0][0].strip()
+        else:
+            best_guess = out2[0][0].strip()
+    else:
+        best_guess = wordle_map[i_str]
+        
+    print(best_guess)
+        
     # a,b,c = process_move("humph", "aahed", ".....", defaultdict(lambda : list(), {"r": [3], "u": 0, "n": 1}), "soaeity")
-    exp_value = solve_all()
-
+    
+    # This will go through the overall wordle map (and populate any not seen 
+    # info_string states) to find a solution track.
+    # exp_value = solve_all()
+    # solve("waver")
 
     
